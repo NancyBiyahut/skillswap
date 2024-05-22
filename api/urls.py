@@ -14,4 +14,6 @@ urlpatterns = [
     path('educator-sessions-and-reviews/<int:educator_id>/', list_educator_sessions_and_reviews, name='list_educator_sessions_and_reviews'),
     path('list-learners/', list_learners, name='list_learners'),
     path('list-educators/', list_educators, name='list_educators'),
+    path('list-tags/' , list_tags , name = 'list-tags'),
+    path('add-review/' , add_review , name='add_review'),
 ]

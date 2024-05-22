@@ -41,6 +41,10 @@ def user_login(request):
     username = request.data.get('username')
     password = request.data.get('password')
     
+    # Validate that both username and password are provided
+    if not username or not password:
+        return JsonResponse({'error': 'Username and password are required'}, status=400)
+    
     # Authenticate the user
     user = authenticate(request, username=username, password=password)
     
@@ -235,3 +239,50 @@ def list_educators(request):
     educator_serializer = EducatorSerializer(educators, many=True)
     return Response(educator_serializer.data, status=status.HTTP_200_OK)
 
+# List all the tags
+@api_view(['GET'])
+def list_tags(request):
+    tags = Tag.objects.all()
+    tag_serializer = TagSerializer(tags , many = True)
+    return Response(tag_serializer.data , status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+def add_review(request):
+    user = request.user
+    
+    # Check if the user is a learner
+    try:
+        learner = Learner.objects.get(user=user)
+    except Learner.DoesNotExist:
+        return Response({'error': 'User is not a learner'}, status=status.HTTP_403_FORBIDDEN)
+
+    # Get the session ID and description from the request
+    session_id = request.data.get('session_id')
+    description = request.data.get('description')
+
+    # Check if the session exists and belongs to the learner
+    try:
+        session = Session.objects.get(id=session_id, learner=learner)
+    except Session.DoesNotExist:
+        return Response({'error': 'Session not found or does not belong to the learner'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Ensure the session is completed before adding a review
+    if session.session_status != 'completed':
+        return Response({'error': 'Cannot review a session that is not completed'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Get the educator from the session
+    educator = session.educator
+
+    # Create the review
+    review = Review.objects.create(
+        desc=description,
+        learner=learner,
+        educator=educator,
+        session=session
+    )
+
+    # Serialize the review
+    review_serializer = ReviewSerializer(review)
+
+    return Response(review_serializer.data, status=status.HTTP_201_CREATED)
