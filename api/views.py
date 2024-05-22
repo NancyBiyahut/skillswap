@@ -236,8 +236,23 @@ def list_learners(request):
 @api_view(['GET'])
 def list_educators(request):
     educators = Educator.objects.all()
-    educator_serializer = EducatorSerializer(educators, many=True)
-    return Response(educator_serializer.data, status=status.HTTP_200_OK)
+
+    # Manually serialize the educators with tag names
+    educator_data = []
+    for educator in educators:
+        # Fetch tag names for each educator
+        tag_names = [tag.name for tag in educator.tags.all()]
+
+        # Serialize the educator data
+        educator_data.append({
+            'id': educator.id,
+            'name': educator.name,
+            'tags': tag_names,  # Include tag names instead of IDs
+            'description': educator.description,
+            'charges': educator.charges
+        })
+
+    return Response(educator_data, status=status.HTTP_200_OK)
 
 # List all the tags
 @api_view(['GET'])
