@@ -2,7 +2,7 @@ from django.contrib.auth import authenticate, login
 from django.contrib.auth.models import User
 from django.http import JsonResponse 
 from rest_framework.response import Response
-from rest_framework.decorators import api_view , authentication_classes
+from rest_framework.decorators import api_view 
 from .models import *
 from .serializers import *
 from http import HTTPStatus 
@@ -57,8 +57,8 @@ def user_login(request):
         # If authentication fails, return an error message
         return JsonResponse({'error': 'Invalid credentials'}, status=400)
 
-# Create a learner account
 
+# Create a learner account
 @api_view(['POST','PUT'])
 @csrf_exempt
 def create_learner(request):
@@ -119,10 +119,9 @@ def make_session_request(request):
     except Learner.DoesNotExist:
         return JsonResponse({'error': 'Only learners can create session requests'}, status=status.HTTP_403_FORBIDDEN)
 
-    # Get the educator ID, duration, tags, price, and problem description from the request data
+    # Get the educator ID, duration, price, and problem description from the request data
     educator_id = request.data.get('educator_id')
     duration = request.data.get('duration')
-    tags_data = request.data.get('tags', [])
     price = request.data.get('price')
     problem_description = request.data.get('problem_description')
 
@@ -132,14 +131,8 @@ def make_session_request(request):
     except Educator.DoesNotExist:
         return JsonResponse({'error': 'Educator not found'}, status=status.HTTP_404_NOT_FOUND)
 
-    # Validate and associate tags with the session
-    tags = []
-    for tag_name in tags_data:
-        try:
-            tag = Tag.objects.get(name=tag_name)
-            tags.append(tag)
-        except Tag.DoesNotExist:
-            return JsonResponse({'error': f'Tag "{tag_name}" does not exist'}, status=status.HTTP_400_BAD_REQUEST)
+    # Get the tags from the educator
+    tags = educator.tags.all()
 
     # Create the session
     session = Session.objects.create(
@@ -158,33 +151,38 @@ def make_session_request(request):
     return JsonResponse({'message': 'Session request created successfully', 'session': session_serializer.data}, status=status.HTTP_201_CREATED)
 
 
-# Review list of session requests made to a specific educator
+ # Review list of session requests made to a specific educator
 @api_view(['GET'])
-def get_educator_sessions(request, educator_id):
+def get_educator_sessions(request):
     user = request.user
 
-    # Ensure the request is made by a educator
+    # Ensure the request is made by an educator
     try:
-       educator = Educator.objects.get(user=user)
+        educator = Educator.objects.get(user=user)
     except Educator.DoesNotExist:
-        return JsonResponse({'error': 'Only educator can make requests'}, status=status.HTTP_403_FORBIDDEN)
-    sessions = Session.objects.filter(educator_id=educator_id)
+        return JsonResponse({'error': 'Only educators can make requests'}, status=status.HTTP_403_FORBIDDEN)
+
+    # Fetch sessions for the logged-in educator
+    sessions = Session.objects.filter(educator=educator)
     session_serializer = SessionSerializer(sessions, many=True)
-    return JsonResponse({'sessions': session_serializer.data}, status=HTTPStatus.OK)
+    return JsonResponse({'sessions': session_serializer.data}, status=status.HTTP_200_OK)
+
 
 # Review the list and status of session requests made by a specific learner
 @api_view(['GET'])
-def get_learner_sessions(request, learner_id):
+def get_learner_sessions(request):
     user = request.user
 
     # Ensure the request is made by a learner
     try:
         learner = Learner.objects.get(user=user)
     except Learner.DoesNotExist:
-        return JsonResponse({'error': 'Only learners can can make requests'}, status=status.HTTP_403_FORBIDDEN)
-    sessions = Session.objects.filter(learner_id=learner_id)
+        return JsonResponse({'error': 'Only learners can make requests'}, status=status.HTTP_403_FORBIDDEN)
+
+    # Fetch sessions for the logged-in learner
+    sessions = Session.objects.filter(learner=learner)
     session_serializer = SessionSerializer(sessions, many=True)
-    return JsonResponse({'sessions': session_serializer.data}, status=HTTPStatus.OK)
+    return JsonResponse({'sessions': session_serializer.data}, status=status.HTTP_200_OK)
 
 # Accept/reject the session request
 @api_view(['POST'])
@@ -299,5 +297,54 @@ def add_review(request):
 
     # Serialize the review
     review_serializer = ReviewSerializer(review)
-
     return Response(review_serializer.data, status=status.HTTP_201_CREATED)
+
+@api_view(['GET'])
+def scheduled_sessions(request):
+    user = request.user
+    
+    # Ensure the request is made by an educator
+    try:
+        educator = Educator.objects.get(user=user)
+    except Educator.DoesNotExist:
+        return JsonResponse({'error': 'Only educators can view their scheduled sessions'}, status=status.HTTP_403_FORBIDDEN)
+    
+    # Fetch sessions with 'scheduled' status for the educator
+    scheduled_sessions = Session.objects.filter(educator=educator, session_status='scheduled')
+    
+    # Serialize the sessions data
+    session_serializer = SessionSerializer(scheduled_sessions, many=True)
+    
+    return JsonResponse({'scheduled_sessions': session_serializer.data}, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+def session_history(request):
+    user = request.user
+    
+    # Try to get the learner object for the user
+    try:
+        learner = Learner.objects.get(user=user)
+    except Learner.DoesNotExist:
+        learner = None
+    
+    # Try to get the educator object for the user
+    try:
+        educator = Educator.objects.get(user=user)
+    except Educator.DoesNotExist:
+        educator = None
+    
+    if learner:
+        # If the user is a learner, get their completed sessions
+        completed_sessions = Session.objects.filter(learner=learner, session_status='completed')
+    elif educator:
+        # If the user is an educator, get their completed sessions
+        completed_sessions = Session.objects.filter(educator=educator, session_status='completed')
+    else:
+        # If the user is neither a learner nor an educator
+        return JsonResponse({'error': 'User is neither a learner nor an educator'}, status=status.HTTP_403_FORBIDDEN)
+    
+    # Serialize the sessions data
+    session_serializer = SessionSerializer(completed_sessions, many=True)
+    
+    return Response({'completed_sessions': session_serializer.data}, status=status.HTTP_200_OK)
