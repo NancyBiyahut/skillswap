@@ -164,9 +164,23 @@ def get_educator_sessions(request):
 
     # Fetch sessions for the logged-in educator
     sessions = Session.objects.filter(educator=educator)
-    session_serializer = SessionSerializer(sessions, many=True)
-    return JsonResponse({'sessions': session_serializer.data}, status=status.HTTP_200_OK)
+    # Manually add tag names to each session
+    session_data = []
+    for session in sessions:
+        session_info = {
+            'id': session.id,
+            'learner': session.learner.id,
+            'educator': session.educator.id,
+            'duration': session.duration,
+            'tags': [tag.name for tag in session.tags.all()],  # Include tag names instead of IDs
+            'price': session.price,
+            'problem_description': session.problem_description,
+            'session_status': session.session_status,
+            'payment_status': session.payment_status,
+        }
+        session_data.append(session_info)
 
+    return JsonResponse({'sessions': session_data}, status=status.HTTP_200_OK)
 
 # Review the list and status of session requests made by a specific learner
 @api_view(['GET'])
@@ -179,10 +193,26 @@ def get_learner_sessions(request):
     except Learner.DoesNotExist:
         return JsonResponse({'error': 'Only learners can make requests'}, status=status.HTTP_403_FORBIDDEN)
 
-    # Fetch sessions for the logged-in learner
+     # Fetch sessions for the logged-in learner
     sessions = Session.objects.filter(learner=learner)
-    session_serializer = SessionSerializer(sessions, many=True)
-    return JsonResponse({'sessions': session_serializer.data}, status=status.HTTP_200_OK)
+
+    # Manually add tag names to each session
+    session_data = []
+    for session in sessions:
+        session_info = {
+            'id': session.id,
+            'learner': session.learner.id,
+            'educator': session.educator.id,
+            'duration': session.duration,
+            'tags': [tag.name for tag in session.tags.all()],  # Include tag names instead of IDs
+            'price': session.price,
+            'problem_description': session.problem_description,
+            'session_status': session.session_status,
+            'payment_status': session.payment_status,
+        }
+        session_data.append(session_info)
+
+    return JsonResponse({'sessions': session_data}, status=status.HTTP_200_OK)
 
 # Accept/reject the session request
 @api_view(['POST'])

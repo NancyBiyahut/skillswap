@@ -17,10 +17,13 @@ class TagSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class SessionSerializer(serializers.ModelSerializer):
+    tag_names = serializers.SerializerMethodField()
     class Meta:
         model = Session
         fields = '__all__'
-
+    def get_tag_names(self, obj):
+        return [tag.name for tag in obj.tags.all()]
+    
 class ReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = Review
