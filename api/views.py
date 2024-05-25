@@ -169,8 +169,8 @@ def get_educator_sessions(request):
     for session in sessions:
         session_info = {
             'id': session.id,
-            'learner': session.learner.id,
-            'educator': session.educator.id,
+            'learner': session.learner.name,
+            'educator': session.educator.name,
             'duration': session.duration,
             'tags': [tag.name for tag in session.tags.all()],  # Include tag names instead of IDs
             'price': session.price,
@@ -201,8 +201,8 @@ def get_learner_sessions(request):
     for session in sessions:
         session_info = {
             'id': session.id,
-            'learner': session.learner.id,
-            'educator': session.educator.id,
+            'learner': session.learner.name,
+            'educator': session.educator.name,
             'duration': session.duration,
             'tags': [tag.name for tag in session.tags.all()],  # Include tag names instead of IDs
             'price': session.price,
